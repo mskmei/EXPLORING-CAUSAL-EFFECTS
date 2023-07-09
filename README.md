@@ -1,5 +1,5 @@
 ## EXPLORING THE CAUSAL EFFECTS BETWEEN CO AND PM2.5: A STUDY ON HARMFUL GAS POLLUTION
-The final Project for DATA130059.01 in Fudan University.
+The final Project for DATA130059.01 Causual Ineference and Causal Analysis in Fudan University.
 
 This project mainly includes:
 1. Basic analysis of dataset
