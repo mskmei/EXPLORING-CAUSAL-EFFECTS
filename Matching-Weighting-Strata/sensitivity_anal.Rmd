@@ -1,0 +1,296 @@
+---
+title: "Sensitivity Analysis"
+author: "Keyu Mao"
+date: "2023/6/8"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.csv("final_data.csv")
+head(data)
+```
+
+```{r}
+library(MatchIt)
+library(ggplot2)
+ps_formula <- CO.AQI.Category~Ozone.AQI.Category+NO2.AQI.Category
+ps_model <- matchit(ps_formula, data = data, method = "nearest")
+ps_scores <- ps_model$distance
+data$propensity_score <- ps_scores
+# Subset data for treatment and control groups
+treatment_data <- data[data$CO.AQI.Category == 1, ]
+control_data <- data[data$CO.AQI.Category == 0, ]
+
+# Create density plots for propensity scores
+ggplot() +
+  geom_density(data = treatment_data, aes(x = propensity_score, fill = "Treatment"), alpha = 0.5) +
+  geom_density(data = control_data, aes(x = propensity_score, fill = "Control"), alpha = 0.5) +
+  labs(x = "Propensity Score", y = "Density", fill = "Group") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal()
+```
+
+### Matching
+
+```{r}
+match.method = matchit(CO.AQI.Category~propensity_score, data=data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+att <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 1)
+  ind_control = which(match_data$CO.AQI.Category == 0)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+
+att_v = att(match_data)
+new_data = data
+new_data$CO.AQI.Category = 1 - data$CO.AQI.Category
+match.method = matchit(CO.AQI.Category~propensity_score, data=new_data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+atc <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 0)
+  ind_control = which(match_data$CO.AQI.Category == 1)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+atc_v = atc(match_data)
+prob = mean(data$CO.AQI.Category)
+ATE = prob*att_v+(1-prob)*atc_v
+cat("ATE is:", ATE)
+```
+
+### Weighting
+
+```{r}
+data$weights <- ifelse(data$CO.AQI.Category==1, 1/data$propensity_score, 1/(1-data$propensity_score))
+
+E_Y_1 <- sum(data$PM2.5.AQI.Value*data$weights*data$CO.AQI.Category)/sum(data$weights*data$CO.AQI.Category)
+
+E_Y_0 <- sum(data$PM2.5.AQI.Value*data$weights*(1-data$CO.AQI.Category))/sum(data$weights*(1-data$CO.AQI.Category))
+
+cat("The ACE computed under weighted is:", E_Y_1-E_Y_0)
+```
+
+### Strata
+
+```{r}
+model.stra <- matchit(ps_formula, data = data, method = "subclass")
+data$weights<-NULL
+matched_data <- match.data(model.stra)
+strata <- unique(matched_data$subclass)
+ace <- NULL  
+
+for (i in 1:length(strata)) {
+  stratum <- strata[i]
+  
+  treatment_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 1, ]
+  control_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 0, ]
+  
+  mean_treatment <- mean(treatment_group$PM2.5.AQI.Value)
+  mean_control <- mean(control_group$PM2.5.AQI.Value)
+  
+  ace[i] <- mean_treatment - mean_control
+}
+weighted_ace <- weighted.mean(ace, weights =table(matched_data$subclass))
+weighted_ace
+```
+
+
+
+### 2
+
+```{r}
+data <- read.csv("final_data.csv")
+head(data)
+```
+
+```{r}
+library(MatchIt)
+library(ggplot2)
+ps_formula <- CO.AQI.Category~Ozone.AQI.Category
+ps_model <- matchit(ps_formula, data = data, method = "nearest")
+ps_scores <- ps_model$distance
+data$propensity_score <- ps_scores
+# Subset data for treatment and control groups
+treatment_data <- data[data$CO.AQI.Category == 1, ]
+control_data <- data[data$CO.AQI.Category == 0, ]
+
+# Create density plots for propensity scores
+ggplot() +
+  geom_density(data = treatment_data, aes(x = propensity_score, fill = "Treatment"), alpha = 0.5) +
+  geom_density(data = control_data, aes(x = propensity_score, fill = "Control"), alpha = 0.5) +
+  labs(x = "Propensity Score", y = "Density", fill = "Group") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal()
+```
+
+### Matching
+
+```{r}
+match.method = matchit(CO.AQI.Category~propensity_score, data=data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+att <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 1)
+  ind_control = which(match_data$CO.AQI.Category == 0)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+
+att_v = att(match_data)
+new_data = data
+new_data$CO.AQI.Category = 1 - data$CO.AQI.Category
+match.method = matchit(CO.AQI.Category~propensity_score, data=new_data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+atc <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 0)
+  ind_control = which(match_data$CO.AQI.Category == 1)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+atc_v = atc(match_data)
+prob = mean(data$CO.AQI.Category)
+ATE = prob*att_v+(1-prob)*atc_v
+cat("ATE is:", ATE)
+```
+
+### Weighting
+
+```{r}
+data$weights <- ifelse(data$CO.AQI.Category==1, 1/data$propensity_score, 1/(1-data$propensity_score))
+
+E_Y_1 <- sum(data$PM2.5.AQI.Value*data$weights*data$CO.AQI.Category)/sum(data$weights*data$CO.AQI.Category)
+
+E_Y_0 <- sum(data$PM2.5.AQI.Value*data$weights*(1-data$CO.AQI.Category))/sum(data$weights*(1-data$CO.AQI.Category))
+
+cat("The ACE computed under weighted is:", E_Y_1-E_Y_0)
+```
+
+### Strata
+
+```{r}
+model.stra <- matchit(ps_formula, data = data, method = "subclass")
+data$weights<-NULL
+matched_data <- match.data(model.stra)
+strata <- unique(matched_data$subclass)
+ace <- NULL  
+
+for (i in 1:length(strata)) {
+  stratum <- strata[i]
+  
+  treatment_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 1, ]
+  control_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 0, ]
+  
+  mean_treatment <- mean(treatment_group$PM2.5.AQI.Value)
+  mean_control <- mean(control_group$PM2.5.AQI.Value)
+  
+  ace[i] <- mean_treatment - mean_control
+}
+weighted_ace <- weighted.mean(ace, weights =table(matched_data$subclass))
+weighted_ace
+```
+
+
+
+
+### 3
+
+```{r}
+data <- read.csv("final_data.csv")
+head(data)
+```
+
+```{r}
+library(MatchIt)
+library(ggplot2)
+ps_formula <- CO.AQI.Category~NO2.AQI.Category
+ps_model <- matchit(ps_formula, data = data, method = "nearest")
+ps_scores <- ps_model$distance
+data$propensity_score <- ps_scores
+# Subset data for treatment and control groups
+treatment_data <- data[data$CO.AQI.Category == 1, ]
+control_data <- data[data$CO.AQI.Category == 0, ]
+
+# Create density plots for propensity scores
+ggplot() +
+  geom_density(data = treatment_data, aes(x = propensity_score, fill = "Treatment"), alpha = 0.5) +
+  geom_density(data = control_data, aes(x = propensity_score, fill = "Control"), alpha = 0.5) +
+  labs(x = "Propensity Score", y = "Density", fill = "Group") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal()
+```
+
+
+### Matching
+
+```{r}
+match.method = matchit(CO.AQI.Category~propensity_score, data=data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+att <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 1)
+  ind_control = which(match_data$CO.AQI.Category == 0)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+
+att_v = att(match_data)
+new_data = data
+new_data$CO.AQI.Category = 1 - data$CO.AQI.Category
+match.method = matchit(CO.AQI.Category~propensity_score, data=new_data, method="nearest",ratio = 1)
+match_data = match.data(match.method)
+atc <- function(match_data){
+  ind_treat = which(match_data$CO.AQI.Category == 0)
+  ind_control = which(match_data$CO.AQI.Category == 1)
+  treat = match_data$PM2.5.AQI.Value[ind_treat]
+  control = match_data$PM2.5.AQI.Value[ind_control]
+  mean(treat)-mean(control)
+}
+atc_v = atc(match_data)
+prob = mean(data$CO.AQI.Category)
+ATE = prob*att_v+(1-prob)*atc_v
+cat("ATE is:", ATE)
+```
+
+### Weighting
+
+```{r}
+data$weights <- ifelse(data$CO.AQI.Category==1, 1/data$propensity_score, 1/(1-data$propensity_score))
+
+E_Y_1 <- sum(data$PM2.5.AQI.Value*data$weights*data$CO.AQI.Category)/sum(data$weights*data$CO.AQI.Category)
+
+E_Y_0 <- sum(data$PM2.5.AQI.Value*data$weights*(1-data$CO.AQI.Category))/sum(data$weights*(1-data$CO.AQI.Category))
+
+cat("The ACE computed under weighted is:", E_Y_1-E_Y_0)
+```
+
+### Strata
+
+```{r}
+model.stra <- matchit(ps_formula, data = data, method = "subclass")
+data$weights<-NULL
+matched_data <- match.data(model.stra)
+strata <- unique(matched_data$subclass)
+ace <- NULL  
+
+for (i in 1:length(strata)) {
+  stratum <- strata[i]
+  
+  treatment_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 1, ]
+  control_group <- matched_data[matched_data$subclass == stratum & matched_data$CO.AQI.Category == 0, ]
+  
+  mean_treatment <- mean(treatment_group$PM2.5.AQI.Value)
+  mean_control <- mean(control_group$PM2.5.AQI.Value)
+  
+  ace[i] <- mean_treatment - mean_control
+}
+weighted_ace <- weighted.mean(ace, weights =table(matched_data$subclass))
+weighted_ace
+```

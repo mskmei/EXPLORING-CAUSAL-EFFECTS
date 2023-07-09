@@ -1,0 +1,96 @@
+---
+title: "task2"
+author: "Keyu Mao"
+date: "2023/6/8"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+```{r}
+data <- read.csv("final_data.csv", header = T)
+data <- na.omit(data)
+head(data)
+```
+
+```{r}
+# Without confounders
+model_formula_with_2 = 'PM2.5.AQI.Value ~ Country+CO.AQI.Category+NO2.AQI.Value+I(NO2.AQI.Value^2)+NO2.AQI.Category+Ozone.AQI.Value+I(Ozone.AQI.Value^2)+Ozone.AQI.Category'
+
+# With confounders
+model_lr = lm(model_formula_with_2, data=data)
+summary(model_lr)
+```
+```{r}
+library(EValue)
+ols<-model_lr
+evalues.OLS(est = ols$coefficients[3], se = summary(ols)$coefficients['CO.AQI.Category', 'Std. Error'], sd = sd(data$PM2.5.AQI.Value))
+```
+
+
+
+```{r}
+# Without confounders
+model_formula_with = 'PM2.5.AQI.Value ~ Country+CO.AQI.Category+NO2.AQI.Value+NO2.AQI.Category+Ozone.AQI.Value+Ozone.AQI.Category'
+
+# With confounders
+model_formula_without = 'PM2.5.AQI.Value ~ CO.AQI.Category'
+# Without confounders
+model_without = lm(model_formula_without, data=data)
+
+# With confounders
+model_with = lm(model_formula_with, data=data)
+```
+
+```{r}
+# Without confounders
+summary(model_without)
+```
+
+```{r}
+# With confounders
+summary(model_with)
+```
+
+```{r}
+model_formula_without = 'PM2.5.AQI.Value ~  CO.AQI.Category+NO2.AQI.Value+NO2.AQI.Category+Ozone.AQI.Value+Ozone.AQI.Category'
+# Without confounders
+model_without = lm(model_formula_without, data=data)
+summary(model_without)
+```
+
+```{r}
+model_formula_without = 'PM2.5.AQI.Value ~ CO.AQI.Category+ NO2.AQI.Category+Ozone.AQI.Category'
+# Without confounders
+model_without = lm(model_formula_without, data=data)
+summary(model_without)
+```
+## sen
+
+```{r}
+library(causalsens)                # Load MatchIt package
+library(tidyverse)          # For data manipulation
+```
+
+
+```{r}
+model <- lm(model_formula_with, data = data)
+p_model <- glm(CO.AQI.Category~NO2.AQI.Category+Ozone.AQI.Category+Country, data=data)
+```
+
+```{r}
+alpha <- seq(-4500, 4500, by = 250)
+ll.sens <- causalsens(model, p_model, ~ NO2.AQI.Category+Ozone.AQI.Category, data = data,
+ confound = one.sided.att)
+```
+
+
+
+```{r}
+plot(ll.sens, type = "raw", bty = "n")
+```
+
+```{r}
+plot(ll.sens, type = "r.squared", bty = "n")
+```
